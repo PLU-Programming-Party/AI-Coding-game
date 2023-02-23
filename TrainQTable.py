@@ -2,6 +2,9 @@ from PIL import Image
 import gym
 import matplotlib.pyplot as plt
 import pickle
+from qNet import qNet
+import numpy as np
+import torch
 #env = gym.make("CartPole-v1")
 #observation, info = env.reset(seed=42)
 
@@ -21,7 +24,13 @@ rows = 500
 cols = 6
 
 # create a 2D array filled with zeroes
+DQN = qNet()
 qTable = [[0 for j in range(cols)] for i in range(rows)]
+npImg = np.array(img)
+tensorIMG = torch.from_numpy(npImg).to(torch.float)
+tensorIMG = tensorIMG.permute(2,1,0)
+tensorIMG = tensorIMG.unsqueeze(0)
+result = DQN(tensorIMG)
 
 
 #Q(s,a,) = r(s’|s,a) + Y(max(Q(s’,a’))
