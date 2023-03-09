@@ -21,7 +21,8 @@ def fillMemory(env, memory):
     #, render_mode="human"
     #`pip install gym[toy_text]`
     observation, info = env.reset()
-    for _ in range(10000):
+    x = 5000
+    for _ in range(x):
         a = env.action_space.sample()
         pictureA = env.render()
         observation, reward, terminated, truncated, info = env.step(a)
@@ -31,7 +32,7 @@ def fillMemory(env, memory):
             observation, info = env.reset()
 
         if _ % 100 == 0:
-            print("Fill Memory Progress: " , _ , " / 10000")
+            print("Fill Memory Progress: ", _, " / ", x)
 
     return memory
 
@@ -44,7 +45,8 @@ def trainMain():
     epsilon = 1
     LR = 1e-4
     loss = nn.MSELoss()
-    for eps in range(10000):
+    x = 2500000
+    for eps in range(x):
         sample = memory[random.randint(0,len(memory)-1)]
         prev_img = sample[0]
     
@@ -76,7 +78,7 @@ def trainMain():
         optimizer.step()
 
         if eps % 100 == 0:
-            print("Training Progress: " , eps , " / 10000")
+            print("Training Progress: ", eps, " / ", x)
 
     torch.save(model, "DQN.pt")
 
@@ -88,6 +90,9 @@ def testMain():
 
     observation, info = env.reset()
     observation = env.render()
+
+    total = 0
+    wins = 0
 
     for _ in range(100000):
 
@@ -105,13 +110,17 @@ def testMain():
         observation, reward, terminated, truncated, info = env.step(output.item())
         if terminated or truncated:
             observation, info = env.reset()
+            total = total + 1
             if terminated:
+                wins = wins + 1
                 print("Game Won!")
             if truncated:
                 print("Game Lost")
+            print("Total Wins: ", wins, " / ", total)
         observation = env.render()
 
     env.close()
+    testMain()
 
 
 
