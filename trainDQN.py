@@ -30,35 +30,35 @@ def fillMemory(env, memory):
         if terminated or truncated:
             observation, info = env.reset()
 
-        if _ % 1000 == 0:
-            print(_)
+        if _ % 100 == 0:
+            print("Fill Memory Progress: " , _ , " / 10000")
 
     return memory
 
 def trainMain():
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     env = gym.make("Taxi-v3", render_mode="rgb_array")
-    model = qNet()
+    model = qNet().to(device)
     memory = []
     memory = fillMemory(env, memory)
     epsilon = 1
     LR = 1e-4
     loss = nn.MSELoss()
     for eps in range(10000):
-        sample = memory[random.randint(0,len(memory))]
+        sample = memory[random.randint(0,len(memory)-1)]
         prev_img = sample[0]
     
         npImg = np.array(prev_img)
-        tensorIMG = torch.from_numpy(npImg).to(torch.float)
+        tensorIMG = torch.from_numpy(npImg).to(torch.float).to(device)
         tensorIMG = tensorIMG.permute(2,1,0)
         tensorIMG = tensorIMG.unsqueeze(0)
         qsa = model(tensorIMG)
-        #qsa = qsa.numpy()
         qsa = qsa[0, sample[1]]
         next_img = sample[3]
         reward = sample[2]
 
         next_img = np.array(next_img)
-        next_img = torch.from_numpy(next_img).to(torch.float)
+        next_img = torch.from_numpy(next_img).to(torch.float).to(device)
         nextImg = next_img.permute(2,1,0)
         nextImg = nextImg.unsqueeze(0)
         with torch.no_grad():
@@ -75,35 +75,41 @@ def trainMain():
         torch.nn.utils.clip_grad_value_(model.parameters(), 100)
         optimizer.step()
 
-        if eps % 1000 == 0:
-            print(eps)
+        if eps % 100 == 0:
+            print("Training Progress: " , eps , " / 10000")
 
     torch.save(model, "DQN.pt")
 
 
-def test_main():
+def testMain():
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     env = gym.make("Taxi-v3", render_mode="rgb_array")
-    model = torch.load("DQN.pt")
+    model = torch.load("DQN.pt").to(device)
 
-    observation = env.reset()
+    observation, info = env.reset()
+    observation = env.render()
 
     for _ in range(100000):
 
         s = observation
         npImg = np.array(s)
-        tensorIMG = torch.from_numpy(npImg).to(torch.float)
+        tensorIMG = torch.from_numpy(npImg).to(torch.float).to(device)
         tensorIMG = tensorIMG.permute(2, 1, 0)
         tensorIMG = tensorIMG.unsqueeze(0)
 
-        with torch.no_grad:
+        with torch.no_grad():
             output = model(tensorIMG)
 
-        output = output.numpy()
-        output = argmax(output)
+        output = torch.argmax(output, dim = 1)
 
-        observation, reward, terminated, truncated, info = env.step(output)
+        observation, reward, terminated, truncated, info = env.step(output.item())
         if terminated or truncated:
             observation, info = env.reset()
+            if terminated:
+                print("Game Won!")
+            if truncated:
+                print("Game Lost")
+        observation = env.render()
 
     env.close()
 
@@ -115,5 +121,5 @@ def test_main():
 
 #def testMain():
 if __name__ == "__main__":
-    trainMain()
+    testMain()
 
