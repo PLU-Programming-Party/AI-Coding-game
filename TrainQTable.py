@@ -1,5 +1,5 @@
 from PIL import Image
-import gym
+import gymnasium as gym
 import matplotlib.pyplot as plt
 import pickle
 from qNet import qNet

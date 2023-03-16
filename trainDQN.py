@@ -25,8 +25,14 @@ def fillMemory(env, memory):
     for _ in range(x):
         a = env.action_space.sample()
         pictureA = env.render()
+        pictureA = Image.fromarray(pictureA)
+        pictureA = pictureA.resize((55,35))
+        pictureA = np.asarray(pictureA)
         observation, reward, terminated, truncated, info = env.step(a)
         pictureB = env.render()
+        pictureB = Image.fromarray(pictureB)
+        pictureB = pictureB.resize((55, 35))
+        pictureB = np.asarray(pictureB)
         memory.append((pictureA, a, reward, pictureB))
         if terminated or truncated:
             observation, info = env.reset()
@@ -45,7 +51,7 @@ def trainMain():
     epsilon = 1
     LR = 1e-4
     loss = nn.MSELoss()
-    x = 2500000
+    x = 10000000
     for eps in range(x):
         sample = memory[random.randint(0,len(memory)-1)]
         prev_img = sample[0]
@@ -65,7 +71,7 @@ def trainMain():
         nextImg = nextImg.unsqueeze(0)
         with torch.no_grad():
             qsPlus1A = model(nextImg)
-        qsPlus1A = max(qsPlus1A)
+        qsPlus1A = torch.max(qsPlus1A)
 
         qsPlus1A = (reward + .9 * qsPlus1A)
 
@@ -79,8 +85,12 @@ def trainMain():
 
         if eps % 100 == 0:
             print("Training Progress: ", eps, " / ", x)
+        if eps % 100000 == 0:
+            torch.save(model, "DQN.pt")
+            testMain()
 
     torch.save(model, "DQN.pt")
+    testMain()
 
 
 def testMain():
@@ -88,16 +98,22 @@ def testMain():
     env = gym.make("Taxi-v3", render_mode="rgb_array")
     model = torch.load("DQN.pt").to(device)
 
+
+    #print(sum(p.numel() for p in model.parameters() if p.requires_grad))
     observation, info = env.reset()
     observation = env.render()
 
     total = 0
     wins = 0
 
-    for _ in range(100000):
+    for _ in range(10000):
 
         s = observation
         npImg = np.array(s)
+        npImg = Image.fromarray(npImg)
+        #npImg.show()
+        npImg = npImg.resize((55, 35))
+        npImg = np.asarray(npImg)
         tensorIMG = torch.from_numpy(npImg).to(torch.float).to(device)
         tensorIMG = tensorIMG.permute(2, 1, 0)
         tensorIMG = tensorIMG.unsqueeze(0)
@@ -105,23 +121,28 @@ def testMain():
         with torch.no_grad():
             output = model(tensorIMG)
 
+        #print(output)
+        large = torch.finfo(output.dtype).max
+        ac = (output - large * (1 - torch.from_numpy(info["action_mask"]).to(device)) - large * (1 - torch.from_numpy(info["action_mask"]).to(device))).argmax()
         output = torch.argmax(output, dim = 1)
 
-        observation, reward, terminated, truncated, info = env.step(output.item())
+
+        observation, reward, terminated, truncated, info = env.step(ac.item())
+        picture = env.render()
+
         if terminated or truncated:
             observation, info = env.reset()
             total = total + 1
             if terminated:
                 wins = wins + 1
-                print("Game Won!")
+                #print("Game Won!")
             if truncated:
-                print("Game Lost")
+                wins = wins
+                #print("Game Lost")
             print("Total Wins: ", wins, " / ", total)
         observation = env.render()
 
     env.close()
-    testMain()
-
 
 
 
@@ -130,5 +151,5 @@ def testMain():
 
 #def testMain():
 if __name__ == "__main__":
-    testMain()
+    trainMain()
 
