@@ -21,7 +21,7 @@ def fillMemory(env, memory):
     #, render_mode="human"
     #`pip install gym[toy_text]`
     observation, info = env.reset()
-    x = 5000
+    x = 10000
     for _ in range(x):
         a = env.action_space.sample()
         pictureA = env.render()
@@ -51,31 +51,33 @@ def trainMain():
     epsilon = 1
     LR = 1e-4
     loss = nn.MSELoss()
-    x = 10000000
+    x = 1000000000
+    batch_size = 128
     for eps in range(x):
-        sample = memory[random.randint(0,len(memory)-1)]
-        prev_img = sample[0]
+        sample = random.sample(memory, batch_size)
+        prev_img = [tup[0] for tup in sample]
     
         npImg = np.array(prev_img)
         tensorIMG = torch.from_numpy(npImg).to(torch.float).to(device)
-        tensorIMG = tensorIMG.permute(2,1,0)
-        tensorIMG = tensorIMG.unsqueeze(0)
+        tensorIMG = tensorIMG.permute(0,3,2,1)
+        #tensorIMG = tensorIMG.unsqueeze(0)
         qsa = model(tensorIMG)
-        qsa = qsa[0, sample[1]]
-        next_img = sample[3]
-        reward = sample[2]
+        actions = [tup[1] for tup in sample]
+        qsa = model(tensorIMG).gather(1, torch.tensor(actions).unsqueeze(1).to(device))
+        next_img = [tup[3] for tup in sample]
+        reward = [tup[2] for tup in sample]
 
         next_img = np.array(next_img)
         next_img = torch.from_numpy(next_img).to(torch.float).to(device)
-        nextImg = next_img.permute(2,1,0)
-        nextImg = nextImg.unsqueeze(0)
+        nextImg = next_img.permute(0,3,2,1)
+        #nextImg = nextImg.unsqueeze(0)
         with torch.no_grad():
             qsPlus1A = model(nextImg)
-        qsPlus1A = torch.max(qsPlus1A)
+        qsPlus1A = [torch.max(q) for q in qsPlus1A]
 
-        qsPlus1A = (reward + .9 * qsPlus1A)
+        qsPlus1A = [qsPlus1A[i]*.9 + reward[i] for i in range(len(qsPlus1A))]
 
-        error = loss(qsa, qsPlus1A)
+        error = loss(qsa, torch.tensor(qsPlus1A).to(device))
 
         optimizer = optim.AdamW(model.parameters(), lr=LR, amsgrad=True)
         error.backward()
