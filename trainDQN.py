@@ -10,8 +10,32 @@ from qNet import qNet
 import torch
 from PIL import Image
 import torch.nn as nn
+import torch.nn.functional as F
 
+class DQNCNN(nn.Module):
+    def __init__(self, h, w, outputs):
+        super(DQNCNN, self).__init__()
+        self.conv1 = nn.Conv2d(3, 16, kernel_size=5, stride=2)
+        self.bn1 = nn.BatchNorm2d(16)
+        #self.maxPool = torch.nn.MaxPool2d(2, 2)
+        self.conv2 = nn.Conv2d(16, 32, kernel_size=5, stride=2)
+        self.bn2 = nn.BatchNorm2d(32)
+        self.conv3 = nn.Conv2d(32, 32, kernel_size=5, stride=2)
+        self.bn3 = nn.BatchNorm2d(32)
 
+        def conv2d_size_out(size, kernel_size=5, stride=2):
+            return (size - (kernel_size - 1) - 1) // stride + 1
+        convw = conv2d_size_out(conv2d_size_out(conv2d_size_out(w)))
+        convh = conv2d_size_out(conv2d_size_out(conv2d_size_out(h)))
+        linear_input_size = convw * convh * 32
+        self.head = nn.Linear(linear_input_size, outputs)
+
+    def forward(self, x):
+        x = F.relu(self.bn1(self.conv1(x)))
+        #x = F.relu(self.maxPool(x))
+        x = F.relu(self.bn2(self.conv2(x)))
+        x = F.relu(self.bn3(self.conv3(x)))
+        return self.head(x.view(x.size(0), -1))
 
 
 
@@ -27,6 +51,7 @@ def fillMemory(env, memory):
         pictureA = env.render()
         pictureA = Image.fromarray(pictureA)
         pictureA = pictureA.resize((55,35))
+        pictureA.show()
         pictureA = np.asarray(pictureA)
         observation, reward, terminated, truncated, info = env.step(a)
         pictureB = env.render()
@@ -98,7 +123,7 @@ def trainMain():
 def testMain():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     env = gym.make("Taxi-v3", render_mode="rgb_array")
-    model = torch.load("DQN.pt").to(device)
+    model = torch.load("gptModel0.pt").to(device)
 
 
     #print(sum(p.numel() for p in model.parameters() if p.requires_grad))
@@ -113,7 +138,7 @@ def testMain():
         s = observation
         npImg = np.array(s)
         npImg = Image.fromarray(npImg)
-        #npImg.show()
+        npImg.show()
         npImg = npImg.resize((55, 35))
         npImg = np.asarray(npImg)
         tensorIMG = torch.from_numpy(npImg).to(torch.float).to(device)
