@@ -50,7 +50,7 @@ def trainMain():
     epsilon = 1
     LR = 1e-4
     loss = nn.MSELoss()
-    x = 1000000000
+    x = 1000000
     batch_size = 128
     for eps in range(x):
         sample = random.sample(memory, batch_size)
@@ -89,9 +89,11 @@ def trainMain():
 
         if eps % 100 == 0:
             print("Training Progress: ", eps, " / ", x)
-        if eps % 100000 == 0:
+        if eps % 10000 == 0:
             torch.save(model, "DQN.pt")
             testMain()
+            memory = []
+            memory = fillMemory(env, memory)
 
     torch.save(model, "DQN.pt")
     testMain()
@@ -115,7 +117,7 @@ def testMain():
         s = observation
         npImg = np.array(s)
         npImg = Image.fromarray(npImg)
-        #npImg.show()
+        npImg.show()
         npImg = npImg.resize((55, 35))
         npImg = np.asarray(npImg)
         tensorIMG = torch.from_numpy(npImg).to(torch.float).to(device)
@@ -149,11 +151,7 @@ def testMain():
     env.close()
 
 
-
-
-
-
 #def testMain():
 if __name__ == "__main__":
-    trainMain()
+    testMain()
 
