@@ -25,17 +25,17 @@ def epsilon_greedy_action(agent, state, epsilon):
         with torch.no_grad():
             state = torch.tensor(np.asarray(state), dtype=torch.float32).unsqueeze(0)
             q_values = agent(state)
-            return q_values.argmax(dim=1).item()
+            return q_values.argmax(0).item()
 
 def optimize_agent(agent, target_agent, memory, batch_size, optimizer, gamma):
     if len(memory) < batch_size:
         return
     batch = random.sample(memory, batch_size)
     state, action, reward, next_state, done = zip(*batch)
-    state = torch.tensor(np.asarray(state), dtype=torch.float32)
+    state = torch.tensor(np.asarray(state), dtype=torch.float32).view(batch_size, 1)
     action = torch.tensor(np.asarray(action), dtype=torch.int64).unsqueeze(-1)
     reward = torch.tensor(np.asarray(reward), dtype=torch.float32).unsqueeze(-1)
-    next_state = torch.tensor(np.asarray(next_state), dtype=torch.float32)
+    next_state = torch.tensor(np.asarray(next_state), dtype=torch.float32).view(batch_size, 1)
     done = torch.tensor(np.asarray(done), dtype=torch.float32).unsqueeze(-1)
 
     q_values = agent(state).gather(1, action)
@@ -47,9 +47,10 @@ def optimize_agent(agent, target_agent, memory, batch_size, optimizer, gamma):
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
+    #memory.clear()
 
 # Hyperparameters
-episodes = 5000
+episodes = 100
 batch_size = 64
 memory_size = 10000
 gamma = 0.99
@@ -80,6 +81,7 @@ for episode in range(episodes):
         epsilon = max(epsilon_end, epsilon_start * (epsilon_decay ** episode))
         action = epsilon_greedy_action(agent, state, epsilon)
         next_state, reward, win, trunc, _ = env.step(action)
+        done = win or trunc
         memory.append((state, action, reward, next_state, done))
 
         optimize_agent(agent, target_agent, memory, batch_size, optimizer, gamma)
@@ -89,24 +91,29 @@ for episode in range(episodes):
         if step_count % target_update_frequency == 0:
             target_agent.load_state_dict(agent.state_dict())
 
-    if (episode + 1) % 100 == 0:
+    if (episode + 1) % 10 == 0:
         print(f"Episode: {episode + 1}, Epsilon: {epsilon:.2f}")
 
 # Testing the trained agent
 test_episodes = 10
 agent.eval()
-env = gym.make('Taxi-v3', render_mode='human')
+env = gym.make('Taxi-v3')
+winCount = 0
 for episode in range(test_episodes):
-    state = env.reset()
+    state = env.reset()[0]
     done = False
     episode_reward = 0
 
     while not done:
         action = epsilon_greedy_action(agent, state, 0.0)
-        next_state, reward, done, _ = env.step(action)
+        next_state, reward, win, trunc, _ = env.step(action)
+        done = win or trunc
+        if win:
+            winCount+=1
         episode_reward += reward
         state = next_state
 
-    print(f"Test Episode: {episode + 1}, Reward: {episode_reward}")
+    print(f"Test Episode: {episode + 1}, Reward: {episode_reward}, Win Count: {winCount}")
 
 env.close()
+torch.save(agent, "stateModel.pt")
