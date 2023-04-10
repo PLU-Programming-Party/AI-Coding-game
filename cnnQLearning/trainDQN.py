@@ -1,17 +1,13 @@
-import time
 import copy
 import random
 import numpy as np
-from collections import deque
 import gymnasium as gym
-from numpy import argmax
 from torch import optim
 
-from qNet import qNet
+from cnnQLearning.qNet import qNet
 import torch
 from PIL import Image
 import torch.nn as nn
-import torch.nn.functional as F
 
 
 def fillMemory(env, memory):

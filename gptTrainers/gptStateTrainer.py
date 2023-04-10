@@ -97,7 +97,7 @@ for episode in range(episodes):
 # Testing the trained agent
 test_episodes = 10
 agent.eval()
-env = gym.make('Taxi-v3')
+env = gym.make('Taxi-v3', render_mode='human')
 winCount = 0
 for episode in range(test_episodes):
     state = env.reset()[0]
@@ -105,6 +105,7 @@ for episode in range(test_episodes):
     episode_reward = 0
 
     while not done:
+        #env.render()
         action = epsilon_greedy_action(agent, state, 0.0)
         next_state, reward, win, trunc, _ = env.step(action)
         done = win or trunc
@@ -116,4 +117,4 @@ for episode in range(test_episodes):
     print(f"Test Episode: {episode + 1}, Reward: {episode_reward}, Win Count: {winCount}")
 
 env.close()
-torch.save(agent, "stateModel.pt")
+torch.save(agent, "GPTstateModel.pt")
