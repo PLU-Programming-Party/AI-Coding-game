@@ -1,5 +1,4 @@
 import gymnasium as gym
-import matplotlib.pyplot as plt
 import pickle
 import numpy
 #env = gym.make("CartPole-v1")
