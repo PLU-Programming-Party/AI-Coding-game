@@ -12,8 +12,10 @@ import torch.nn as nn
 
 def fillMemory(env, memory):
     observation, info = env.reset()
-    x = 10000
-    for _ in range(x):
+    mem_Size = 10
+    winners = 2
+    winCount = 0
+    while winCount < winners:
         a = env.action_space.sample()
         pictureA = env.render()
         pictureA = Image.fromarray(pictureA)
@@ -26,17 +28,27 @@ def fillMemory(env, memory):
         pictureB = pictureB.resize((55, 35))
         pictureB = np.asarray(pictureB)
         memory.append((pictureA, a, reward, pictureB))
+        if reward == 20:
+            winCount = winCount + 1
+
         if terminated or truncated:
             observation, info = env.reset()
 
-        if _ % 100 == 0:
-            print("Fill Memory Progress: ", _, " / ", x)
+        if winCount % 10 == 0:
+            print("Fill Memory Progress: ", winCount, " / ", winners)
 
-    return memory
+    #randomly samples the memory for losers
+    #removes all the sampled loser indexes from memory
+    losers = [i for i, t in enumerate(memory) if t[2] != 20]
+    removeMe = set(random.sample(losers, len(memory) - mem_Size))
+    newMem = [x for i, x in enumerate(memory) if i not in removeMe]
+
+
+    return newMem
 
 def trainMain():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    env = gym.make("Taxi-v3")
+    env = gym.make("Taxi-v3",render_mode="rgb_array")
     model = qNet().to(device)
     theOGModel = copy.deepcopy(model)
     memory = []
@@ -95,7 +107,7 @@ def trainMain():
 
 def testMain():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    env = gym.make("Taxi-v3")
+    env = gym.make("Taxi-v3", render_mode="rgb_array")
     model = torch.load("DQN.pt", map_location=torch.device(device)).to(device)
 
 
@@ -111,7 +123,7 @@ def testMain():
         s = observation
         npImg = np.array(s)
         npImg = Image.fromarray(npImg)
-        npImg.show()
+        # npImg.show()
         npImg = npImg.resize((55, 35))
         npImg = np.asarray(npImg)
         tensorIMG = torch.from_numpy(npImg).to(torch.float).to(device)
@@ -147,5 +159,5 @@ def testMain():
 
 #def testMain():
 if __name__ == "__main__":
-    testMain()
+    trainMain()
 
