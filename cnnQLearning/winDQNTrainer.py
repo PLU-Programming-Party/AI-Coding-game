@@ -13,8 +13,8 @@ import torch.nn as nn
 
 def fillMemory(env, memory):
     observation, info = env.reset()
-    mem_Size = 6
-    winners = 6
+    mem_Size = 11
+    winners = 11
     winCount = 0
     while winCount < winners:
         a = env.action_space.sample()
@@ -43,8 +43,8 @@ def fillMemory(env, memory):
     removeMe = set(random.sample(losers, len(memory) - mem_Size))
     newMem = [x for i, x in enumerate(memory) if i not in removeMe]
 
-    testState = newMem[5]
-    newMem = newMem[:6]
+    testState = newMem[10]
+    newMem = newMem[:10]
     return newMem, testState
 
 
@@ -97,9 +97,9 @@ def trainMain():
 
         if eps % 10 == 0:
             print("Training Progress: ", eps, " / ", x)
-        if eps % 10 == 0:
-            torch.save(model, "DQN.pt")
-            testMain(testState)
+        #if eps % 10 == 0:
+            #torch.save(model, "DQN.pt")
+            #testMain(testState)
             # memory = []
             # memory = fillMemory(env, memory)
 
@@ -109,12 +109,12 @@ def trainMain():
 
 def testMain(testState):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    env = gym.make("Taxi-v3", render_mode="rgb_array")
+    #env = gym.make("Taxi-v3", render_mode="rgb_array")
     model = torch.load("DQN.pt", map_location=torch.device(device)).to(device)
 
     # print(sum(p.numel() for p in model.parameters() if p.requires_grad))
-    observation, info = env.reset()
-    observation = env.render()
+    #observation, info = env.reset()
+    #observation = env.render()
 
     total = 0
     wins = 0
@@ -124,7 +124,7 @@ def testMain(testState):
         s = testState[0]
         npImg = np.array(s)
         npImg = Image.fromarray(npImg)
-        # npImg.show()
+        #npImg.show()
         npImg = npImg.resize((55, 35))
         npImg = np.asarray(npImg)
         tensorIMG = torch.from_numpy(npImg).to(torch.float).to(device)
@@ -136,26 +136,27 @@ def testMain(testState):
 
         # print(output)
         large = torch.finfo(output.dtype).max
-        ac = (output - large * (1 - torch.from_numpy(info["action_mask"]).to(device)) - large * (
-                    1 - torch.from_numpy(info["action_mask"]).to(device))).argmax()
+        #ac = (output - large * (1 - torch.from_numpy(info["action_mask"]).to(device)) - large * (
+        #           1 - torch.from_numpy(info["action_mask"]).to(device))).argmax()
         output = torch.argmax(output, dim=1)
+        print(output)
 
-        observation, reward, terminated, truncated, info = env.step(ac.item())
-        picture = env.render()
+        #observation, reward, terminated, truncated, info = env.step(ac.item())
+        #picture = env.render()
 
-        if terminated or truncated:
-            observation, info = env.reset()
-            total = total + 1
-            if terminated:
-                wins = wins + 1
-                # print("Game Won!")
-            if truncated:
-                wins = wins
+        #if terminated or truncated:
+        #    observation, info = env.reset()
+        #    total = total + 1
+        #    if terminated:
+        #        wins = wins + 1
+        #        # print("Game Won!")
+        #    if truncated:
+        #        wins = wins
                 # print("Game Lost")
-            print("Total Wins: ", wins, " / ", total)
-        observation = env.render()
+        #    print("Total Wins: ", wins, " / ", total)
+        #observation = env.render()
 
-    env.close()
+    #env.close()
 
 
 # def testMain():

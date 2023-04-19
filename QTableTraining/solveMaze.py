@@ -25,6 +25,7 @@ for _ in range(100000):
     s = observation
     a = numpy.argmax(qTable[s])
     observation, reward, terminated, truncated, info = env.step(a)
+    print("Move: " + str(a) + ", Reward: " + str(reward))
     if terminated or truncated:
         observation, info = env.reset()
 
