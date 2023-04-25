@@ -58,9 +58,9 @@ def trainMain():
     epsilon = 1
     LR = 1e-4
     loss = nn.MSELoss()
-    x = 100
+    iteration = 1000000
     batch_size = 5
-    for eps in range(x):
+    for eps in range(iteration):
         sample = random.sample(memory, batch_size)
         prev_img = [tup[0] for tup in sample]
 
@@ -82,7 +82,8 @@ def trainMain():
             qsPlus1A = model(nextImg)
         qsPlus1A = [torch.max(q) for q in qsPlus1A]
 
-        qsPlus1A = [qsPlus1A[i] * .9 + reward[i] for i in range(len(qsPlus1A))]
+        #qsPlus1A = [qsPlus1A[i] * .9 + reward[i] for i in range(len(qsPlus1A))]
+        qsPlus1A = [20.0 for i in range(len(qsPlus1A))]
 
         error = loss(qsa, torch.tensor(qsPlus1A).to(device))
 
@@ -96,7 +97,7 @@ def trainMain():
         optimizer.step()
 
         if eps % 10 == 0:
-            print("Training Progress: ", eps, " / ", x)
+            print("Training Progress: ", eps, " / ", iteration)
         #if eps % 10 == 0:
             #torch.save(model, "DQN.pt")
             #testMain(testState)

@@ -2,119 +2,132 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
-import random
 import gymnasium as gym
 from collections import deque
+import random
 
-class DQNAgent(nn.Module):
-    def __init__(self, state_size, action_size):
-        super(DQNAgent, self).__init__()
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+
+# Define the Q-Network
+class QNetwork(nn.Module):
+    def __init__(self, action_size):
+        super(QNetwork, self).__init__()
         self.fc1 = nn.Linear(1, 64)
-        self.fc2 = nn.Linear(64, 64)
-        self.fc3 = nn.Linear(64, action_size)
+        self.fc2 = nn.Linear(64, 32)
+        self.fc3 = nn.Linear(32, action_size)
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
         x = torch.relu(self.fc2(x))
-        return self.fc3(x)
+        x = self.fc3(x)
+        return x
 
-def epsilon_greedy_action(agent, state, epsilon):
-    if random.random() < epsilon:
-        return random.randint(0, action_size-1)
-    else:
-        with torch.no_grad():
-            state = torch.tensor(np.asarray(state), dtype=torch.float32).unsqueeze(0)
-            q_values = agent(state)
-            return q_values.argmax(0).item()
 
-def optimize_agent(agent, target_agent, memory, batch_size, optimizer, gamma):
-    if len(memory) < batch_size:
-        return
-    batch = random.sample(memory, batch_size)
-    state, action, reward, next_state, done = zip(*batch)
-    state = torch.tensor(np.asarray(state), dtype=torch.float32).view(batch_size, 1)
-    action = torch.tensor(np.asarray(action), dtype=torch.int64).unsqueeze(-1)
-    reward = torch.tensor(np.asarray(reward), dtype=torch.float32).unsqueeze(-1)
-    next_state = torch.tensor(np.asarray(next_state), dtype=torch.float32).view(batch_size, 1)
-    done = torch.tensor(np.asarray(done), dtype=torch.float32).unsqueeze(-1)
+# Define the Agent
+class Agent:
+    def __init__(self, action_size):
+        self.action_size = action_size
+        self.model = QNetwork(action_size).to(device)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=0.001)
+        self.loss_fn = nn.MSELoss()
+        self.gamma = 0.99
+        self.epsilon = 1.0
+        self.epsilon_decay = 0.999999
+        self.epsilon_min = 0.01
 
-    q_values = agent(state).gather(1, action)
-    with torch.no_grad():
-        target_q_values = target_agent(next_state).max(dim=1, keepdim=True)[0]
-        target_q_values = reward + gamma * (1 - done) * target_q_values
+    def act(self, state):
+        if np.random.rand() <= self.epsilon:
+            return np.random.choice(self.action_size)
+        state = torch.tensor(state, dtype=torch.float).view(1, 1).to(device)
+        actions = self.model(state)
+        return torch.argmax(actions).item()
 
-    loss = nn.functional.smooth_l1_loss(q_values, target_q_values)
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
-    #memory.clear()
+    def train(self, state, action, next_state, reward, done, info):
+        if((action == 4 or action == 5) and (info['action_mask'][action] == 1)):
+            reward = 25
+            #print("Successful pick-up.")
+        if reward == 20:
+            reward = 1000
+            print("Winning move.")
+        target = reward
+        if not done:
+            next_state = torch.tensor(next_state, dtype=torch.float).unsqueeze(0).view(1, 1).to(device)
+            target = (reward + self.gamma * torch.max(self.model(next_state)).item())
 
-# Hyperparameters
-episodes = 100
-batch_size = 64
-memory_size = 10000
-gamma = 0.99
-learning_rate = 0.001
-target_update_frequency = 1000
-epsilon_start = 1.0
-epsilon_end = 0.01
-epsilon_decay = 0.995
+        state = torch.tensor(state, dtype=torch.float).unsqueeze(0).view(1, 1).to(device)
+        predicted_target = self.model(state)[0][action]
 
-# Setup environment
-env = gym.make('Taxi-v3')
-state_size = env.observation_space.n
-action_size = env.action_space.n
+        loss = self.loss_fn(predicted_target, torch.tensor(target).float().to(device))
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
 
-# Initialize agent, target agent, and memory
-agent = DQNAgent(state_size, action_size)
-target_agent = DQNAgent(state_size, action_size)
-target_agent.load_state_dict(agent.state_dict())
-optimizer = optim.Adam(agent.parameters(), lr=learning_rate)
-memory = deque(maxlen=memory_size)
+        if self.epsilon > self.epsilon_min:
+            self.epsilon *= self.epsilon_decay
 
-# Training loop
-step_count = 0
-for episode in range(episodes):
-    state = env.reset()[0]
-    done = False
-    while not done:
-        epsilon = max(epsilon_end, epsilon_start * (epsilon_decay ** episode))
-        action = epsilon_greedy_action(agent, state, epsilon)
-        next_state, reward, win, trunc, _ = env.step(action)
-        done = win or trunc
-        memory.append((state, action, reward, next_state, done))
 
-        optimize_agent(agent, target_agent, memory, batch_size, optimizer, gamma)
-        step_count += 1
-        state = next_state
+# Training
+def train_agent(agent, env, episodes=100000, save_path="taxi_agent.pt"):
+    scores = deque(maxlen=episodes)
+    for episode in range(1, episodes + 1):
+        state, oldInfo = env.reset()
+        done = False
+        total_reward = 0
 
-        if step_count % target_update_frequency == 0:
-            target_agent.load_state_dict(agent.state_dict())
+        while not done:
+            action = agent.act(state)
+            next_state, reward, win, loss, info = env.step(action)
+            done = win or loss
+            agent.train(state, action, next_state, reward, done, oldInfo)
+            state = next_state
+            oldInfo = info
+            total_reward += reward
 
-    if (episode + 1) % 10 == 0:
-        print(f"Episode: {episode + 1}, Epsilon: {epsilon:.2f}")
+        scores.append(total_reward)
+        mean_score = np.mean(scores)
 
-# Testing the trained agent
-test_episodes = 10
-agent.eval()
-env = gym.make('Taxi-v3', render_mode='human')
-winCount = 0
-for episode in range(test_episodes):
-    state = env.reset()[0]
-    done = False
-    episode_reward = 0
+        if episode % 100 == 0:
+            print(f"Episode {episode}, Average Reward: {mean_score}")
 
-    while not done:
-        #env.render()
-        action = epsilon_greedy_action(agent, state, 0.0)
-        next_state, reward, win, trunc, _ = env.step(action)
-        done = win or trunc
-        if win:
-            winCount+=1
-        episode_reward += reward
-        state = next_state
 
-    print(f"Test Episode: {episode + 1}, Reward: {episode_reward}, Win Count: {winCount}")
+    print("Training complete.")
+    torch.save(agent.model.state_dict(), save_path)
 
-env.close()
-torch.save(agent, "GPTstateModel.pt")
+
+def test_agent(agent, env, episodes=100):
+    total_rewards = []
+
+    for episode in range(episodes):
+        state = env.reset()
+        done = False
+        total_reward = 0
+
+        while not done:
+            env.render()
+            action = agent.act(state)
+            state, reward, done, _ = env.step(action)
+            total_reward += reward
+
+        total_rewards.append(total_reward)
+
+    env.close()
+    mean_reward = np.mean(total_rewards)
+    print(f"Average reward over {episodes} episodes: {mean_reward}")
+
+
+if __name__ == "__main__":
+    #device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = 'cpu'
+    env = gym.make("Taxi-v3")
+    action_size = env.action_space.n
+
+    # Training
+    agent = Agent(action_size)
+    train_agent(agent, env)
+
+    # Testing
+    saved_agent = Agent(action_size)
+    saved_agent.model.load_state_dict(torch.load("taxi_agent.pt"))
+    saved_agent.epsilon = 0.0  # Turn off exploration during testing
+    test_agent(saved_agent, env)
