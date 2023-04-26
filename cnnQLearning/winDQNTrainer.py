@@ -12,9 +12,10 @@ import torch.nn as nn
 
 
 def fillMemory(env, memory):
-    observation, info = env.reset()
-    mem_Size = 11
-    winners = 11
+    seed_num = 1
+    observation, info = env.reset(seed=seed_num)
+    mem_Size = 1
+    winners = 1
     winCount = 0
     while winCount < winners:
         a = env.action_space.sample()
@@ -23,18 +24,21 @@ def fillMemory(env, memory):
         pictureA = pictureA.resize((55, 35))
         # pictureA.show()
         pictureA = np.asarray(pictureA)
+        pictureA = pictureA/255
         observation, reward, terminated, truncated, info = env.step(a)
         pictureB = env.render()
         pictureB = Image.fromarray(pictureB)
         pictureB = pictureB.resize((55, 35))
         pictureB = np.asarray(pictureB)
+        pictureB = pictureB/255
         memory.append((pictureA, a, reward, pictureB))
+
         if reward == 20:
             winCount = winCount + 1
             print("Fill Memory Progress: ", winCount, " / ", winners)
 
         if terminated or truncated:
-            observation, info = env.reset()
+            observation, info = env.reset(seed=seed_num)
 
 
     # randomly samples the memory for losers
@@ -43,8 +47,8 @@ def fillMemory(env, memory):
     removeMe = set(random.sample(losers, len(memory) - mem_Size))
     newMem = [x for i, x in enumerate(memory) if i not in removeMe]
 
-    testState = newMem[10]
-    newMem = newMem[:10]
+    testState = newMem[0]
+    newMem = newMem[:mem_Size]
     return newMem, testState
 
 
@@ -59,7 +63,7 @@ def trainMain():
     LR = 1e-4
     loss = nn.MSELoss()
     iteration = 1000000
-    batch_size = 5
+    batch_size = 1
     for eps in range(iteration):
         sample = random.sample(memory, batch_size)
         prev_img = [tup[0] for tup in sample]
@@ -82,8 +86,9 @@ def trainMain():
             qsPlus1A = model(nextImg)
         qsPlus1A = [torch.max(q) for q in qsPlus1A]
 
+        gsPlus1A = [20 if reward[i]==20 else qsPlus1A[i] * .9 + reward[i] for i in range(len(qsPlus1A))]
         #qsPlus1A = [qsPlus1A[i] * .9 + reward[i] for i in range(len(qsPlus1A))]
-        qsPlus1A = [20.0 for i in range(len(qsPlus1A))]
+        # qsPlus1A = [20.0 for i in range(len(qsPlus1A))]
 
         error = loss(qsa, torch.tensor(qsPlus1A).to(device))
 
@@ -110,9 +115,11 @@ def trainMain():
 
 def testMain(testState):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    #env = gym.make("Taxi-v3", render_mode="rgb_array")
+    env = gym.make("Taxi-v3", render_mode="rgb_array")
     model = torch.load("DQN.pt", map_location=torch.device(device)).to(device)
 
+    memory = []
+    memory, testState = fillMemory(env, memory)
     # print(sum(p.numel() for p in model.parameters() if p.requires_grad))
     #observation, info = env.reset()
     #observation = env.render()
@@ -120,9 +127,9 @@ def testMain(testState):
     total = 0
     wins = 0
 
-    for _ in range(10):
+    for memInstance in memory:
 
-        s = testState[0]
+        s = memInstance[0]
         npImg = np.array(s)
         npImg = Image.fromarray(npImg)
         #npImg.show()
@@ -162,5 +169,6 @@ def testMain(testState):
 
 # def testMain():
 if __name__ == "__main__":
+
     trainMain()
 
