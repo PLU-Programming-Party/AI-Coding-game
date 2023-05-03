@@ -53,7 +53,8 @@ def fillMemory(env, memory):
 
 
 def trainMain():
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = 'cpu'
     env = gym.make("Taxi-v3", render_mode="rgb_array")
     model = qNet().to(device)
     theOGModel = copy.deepcopy(model)
@@ -101,7 +102,7 @@ def trainMain():
         torch.nn.utils.clip_grad_value_(model.parameters(), 100)
         optimizer.step()
 
-        if eps % 10 == 0:
+        if eps % 1000 == 0:
             print("Training Progress: ", eps, " / ", iteration)
         #if eps % 10 == 0:
             #torch.save(model, "DQN.pt")
@@ -114,12 +115,13 @@ def trainMain():
 
 
 def testMain(testState):
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    #device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = 'cpu'
     env = gym.make("Taxi-v3", render_mode="rgb_array")
     model = torch.load("DQN.pt", map_location=torch.device(device)).to(device)
 
-    memory = []
-    memory, testState = fillMemory(env, memory)
+    #memory = []
+    #memory, testState = fillMemory(env, memory)
     # print(sum(p.numel() for p in model.parameters() if p.requires_grad))
     #observation, info = env.reset()
     #observation = env.render()
@@ -127,14 +129,14 @@ def testMain(testState):
     total = 0
     wins = 0
 
-    for memInstance in memory:
+    for memInstance in range(1):
 
-        s = memInstance[0]
+        s = testState[0]
         npImg = np.array(s)
-        npImg = Image.fromarray(npImg)
+        #npImg = Image.fromarray(npImg)
         #npImg.show()
-        npImg = npImg.resize((55, 35))
-        npImg = np.asarray(npImg)
+        #npImg = npImg.resize((55, 35))
+        #npImg = np.asarray(npImg)/255
         tensorIMG = torch.from_numpy(npImg).to(torch.float).to(device)
         tensorIMG = tensorIMG.permute(2, 1, 0)
         tensorIMG = tensorIMG.unsqueeze(0)
@@ -144,6 +146,7 @@ def testMain(testState):
 
         # print(output)
         large = torch.finfo(output.dtype).max
+        print(output)
         #ac = (output - large * (1 - torch.from_numpy(info["action_mask"]).to(device)) - large * (
         #           1 - torch.from_numpy(info["action_mask"]).to(device))).argmax()
         output = torch.argmax(output, dim=1)
@@ -167,7 +170,6 @@ def testMain(testState):
     #env.close()
 
 
-# def testMain():
 if __name__ == "__main__":
 
     trainMain()
