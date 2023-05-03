@@ -73,7 +73,8 @@ def trainMain():
         tensorIMG = torch.from_numpy(npImg).to(torch.float).to(device)
         tensorIMG = tensorIMG.permute(0, 3, 2, 1)
         # tensorIMG = tensorIMG.unsqueeze(0)
-        qsa = model(tensorIMG)
+        #Commented out due to overlap with line 78 as they both overwrite QSA and ping the nn twice
+        #qsa = model(tensorIMG)
         actions = [tup[1] for tup in sample]
         qsa = model(tensorIMG).gather(1, torch.tensor(actions).unsqueeze(1).to(device))
         next_img = [tup[3] for tup in sample]
@@ -87,7 +88,8 @@ def trainMain():
             qsPlus1A = model(nextImg)
         qsPlus1A = [torch.max(q) for q in qsPlus1A]
 
-        gsPlus1A = [20 if reward[i]==20 else qsPlus1A[i] * .9 + reward[i] for i in range(len(qsPlus1A))]
+        #Source of much woe.
+        qsPlus1A = [20 if reward[i]==20 else qsPlus1A[i] * .9 + reward[i] for i in range(len(qsPlus1A))]
         #qsPlus1A = [qsPlus1A[i] * .9 + reward[i] for i in range(len(qsPlus1A))]
         # qsPlus1A = [20.0 for i in range(len(qsPlus1A))]
 
