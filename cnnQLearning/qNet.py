@@ -7,12 +7,12 @@ class qNet(nn.Module):
         super(qNet, self).__init__()
         self.layer1 = torch.nn.Conv2d(in_channels=3, out_channels=32, kernel_size=3)
         self.maxPool = torch.nn.MaxPool2d(2,2)
-        self.layer2 = torch.nn.Conv2d(in_channels=32, out_channels=1, kernel_size=3)
-        #self.layer3 = torch.nn.Conv2d(in_channels=128, out_channels=32, kernel_size=3)
-        #self.layer4 = torch.nn.Conv2d(in_channels=32, out_channels=10, kernel_size=3)
+        self.layer2 = torch.nn.Conv2d(in_channels=32, out_channels=128, kernel_size=3)
+        self.layer3 = torch.nn.Conv2d(in_channels=128, out_channels=32, kernel_size=3)
+        self.layer4 = torch.nn.Conv2d(in_channels=32, out_channels=10, kernel_size=3)
         self.batchNorm32 = torch.nn.BatchNorm2d(32)
         self.batchNorm1 = torch.nn.BatchNorm2d(1)
-        #self.batchNorm10 = torch.nn.BatchNorm2d(10)
+        self.batchNorm10 = torch.nn.BatchNorm2d(10)
         self.relu = torch.torch.nn.ReLU()
         self.linear1 = torch.nn.Linear(84, 20)
         self.linear2 = torch.nn.Linear(20, 6)
@@ -29,9 +29,9 @@ class qNet(nn.Module):
 
         output2 = self.maxPool(self.relu(self.batchNorm1(self.layer2(output1)))) # 136x66x128
 
-        #output3 = self.maxPool(self.relu(self.batchNorm32(self.layer3(output2)))) # 67x32x32
+        output3 = self.maxPool(self.relu(self.batchNorm32(self.layer3(output2)))) # 67x32x32
 
-        #output4 = self.maxPool(self.relu(self.batchNorm10(self.layer4(output3)))) # 32x15x10
+        output4 = self.maxPool(self.relu(self.batchNorm10(self.layer4(output3)))) # 32x15x10
 
         output5 = output2.view(-1, 84)
 

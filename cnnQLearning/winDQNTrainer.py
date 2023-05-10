@@ -21,14 +21,14 @@ def fillMemory(env, memory):
         a = env.action_space.sample()
         pictureA = env.render()
         pictureA = Image.fromarray(pictureA)
-        pictureA = pictureA.resize((55, 35))
+        #pictureA = pictureA.resize((55, 35))
         # pictureA.show()
         pictureA = np.asarray(pictureA)
         pictureA = pictureA/255
         observation, reward, terminated, truncated, info = env.step(a)
         pictureB = env.render()
         pictureB = Image.fromarray(pictureB)
-        pictureB = pictureB.resize((55, 35))
+        #pictureB = pictureB.resize((55, 35))
         pictureB = np.asarray(pictureB)
         pictureB = pictureB/255
         memory.append((pictureA, a, reward, pictureB))
@@ -85,7 +85,7 @@ def trainMain():
         nextImg = next_img.permute(0, 3, 2, 1)
         # nextImg = nextImg.unsqueeze(0)
         with torch.no_grad():
-            qsPlus1A = model(nextImg)
+            qsPlus1A = theOGModel(nextImg)
         qsPlus1A = [torch.max(q) for q in qsPlus1A]
 
         #Source of much woe.
@@ -98,11 +98,11 @@ def trainMain():
         optimizer = optim.AdamW(model.parameters(), lr=LR, amsgrad=True)
         error.backward()
 
-        for param, param_copy in zip(model.parameters(), theOGModel.parameters()):
-            param.data.copy_(0.99 * param_copy.data + 0.01 * param.data)
-
         torch.nn.utils.clip_grad_value_(model.parameters(), 100)
         optimizer.step()
+
+        for param, param_copy in zip(model.parameters(), theOGModel.parameters()):
+            param.data.copy_(0.99 * param_copy.data + 0.01 * param.data)
 
         if eps % 1000 == 0:
             print("Training Progress: ", eps, " / ", iteration)
