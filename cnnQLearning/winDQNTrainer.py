@@ -40,6 +40,9 @@ def fillMemory(env, memory):
         if terminated or truncated:
             observation, info = env.reset(seed=seed_num)
 
+        if (winCount < winners):
+            memory = []
+
 
     # randomly samples the memory for losers
     # removes all the sampled loser indexes from memory
@@ -103,6 +106,7 @@ def trainMain():
 
         for param, param_copy in zip(model.parameters(), theOGModel.parameters()):
             param.data.copy_(0.99 * param_copy.data + 0.01 * param.data)
+        theOGModel = copy.deepcopy(model)
 
         if eps % 1000 == 0:
             print("Training Progress: ", eps, " / ", iteration)
