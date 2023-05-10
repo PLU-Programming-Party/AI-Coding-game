@@ -93,7 +93,7 @@ def trainMain():
         #qsPlus1A = [qsPlus1A[i] * .9 + reward[i] for i in range(len(qsPlus1A))]
         # qsPlus1A = [20.0 for i in range(len(qsPlus1A))]
 
-        error = loss(qsa, torch.tensor(qsPlus1A).to(device))
+        error = loss(qsa, torch.tensor(qsPlus1A).to(torch.float).to(device))
 
         optimizer = optim.AdamW(model.parameters(), lr=LR, amsgrad=True)
         error.backward()
