@@ -12,8 +12,8 @@ import torch.nn as nn
 
 def fillMemory(env, memory):
     observation, info = env.reset()
-    mem_Size = 10
-    winners = 2
+    mem_Size = 320
+    winners = 320
     winCount = 0
     while winCount < winners:
         a = env.action_space.sample()
@@ -28,8 +28,8 @@ def fillMemory(env, memory):
         pictureB = pictureB.resize((55, 35))
         pictureB = np.asarray(pictureB)
         memory.append((pictureA, a, reward, pictureB))
-        if reward == 20:
-            winCount = winCount + 1
+        #if reward == 20:
+        winCount = winCount + 1
 
         if terminated or truncated:
             observation, info = env.reset()

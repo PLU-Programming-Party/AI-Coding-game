@@ -33,7 +33,7 @@ class qNet(nn.Module):
 
         output4 = self.maxPool(self.relu(self.batchNorm10(self.layer4(output3)))) # 32x15x10
 
-        output5 = output4.view(1, -1)
+        output5 = output4.view(-1, 6400)
 
         output6 = self.linear2(self.relu(self.linear1(output5)))
 
