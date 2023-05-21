@@ -17,7 +17,9 @@ def fillMemory(env, memory):
     mem_Size = 1000
     winners = 10
     winCount = 0
-    while len(memory) < mem_Size or winCount < winners:
+    pickUps = 10
+    pickUpCount = 0
+    while len(memory) < mem_Size or winCount < winners or pickUpCount < pickUps:
         a = env.action_space.sample()
         pictureA = env.render()
         pictureA = Image.fromarray(pictureA)
@@ -26,17 +28,21 @@ def fillMemory(env, memory):
         pictureA = np.asarray(pictureA)
         pictureA = pictureA/255
         observation, reward, terminated, truncated, info = env.step(a)
+        if(a == 4 and reward == -1 and pickUpCount < pickUps):
+            reward = 10
+            pickUpCount+=1
         pictureB = env.render()
         pictureB = Image.fromarray(pictureB)
         #pictureB = pictureB.resize((55, 35))
         pictureB = np.asarray(pictureB)
         pictureB = pictureB/255
-        memory.append((pictureA, a, reward, pictureB))
+        if(pickUpCount != pickUps or reward != 10):
+            memory.append((pictureA, a, reward, pictureB))
 
         if reward == 20:
             winCount = winCount + 1
         if(len(memory) % 100 == 0):
-            print("Fill Memory Progress: ", len(memory), " / ", mem_Size, "Total Wins: ", winCount)
+            print("Fill Memory Progress: ", len(memory), " / ", mem_Size, "Total Wins: ", winCount, " Total PickUps: ", pickUpCount)
 
         if terminated or truncated:
             observation, info = env.reset(seed=seed_num)
@@ -44,13 +50,12 @@ def fillMemory(env, memory):
         # if (winCount < winners):
         #     memory = []
         if(len(memory) > mem_Size*2):
-            losers = [i for i, t in enumerate(memory) if t[2] != 20]
+            losers = [i for i, t in enumerate(memory) if t[2] != 20 or t[2] != 10]
             removeMe = set(random.sample(losers, len(memory) - mem_Size))
             newMem = [x for i, x in enumerate(memory) if i not in removeMe]
             memory = newMem
             losers = []
             removeMe = []
-
             newMem = []
 
 
@@ -103,7 +108,7 @@ def trainMain():
         qsPlus1A = [torch.max(q) for q in qsPlus1A]
 
         #Source of much woe.
-        qsPlus1A = [2000 if reward[i]==20 else qsPlus1A[i] * .9 + reward[i] for i in range(len(qsPlus1A))]
+        qsPlus1A = [20 if reward[i]==20 else qsPlus1A[i] * .9 + reward[i] for i in range(len(qsPlus1A))]
         #qsPlus1A = [qsPlus1A[i] * .9 + reward[i] for i in range(len(qsPlus1A))]
         # qsPlus1A = [20.0 for i in range(len(qsPlus1A))]
 
@@ -122,12 +127,12 @@ def trainMain():
         if eps % 10 == 0:
             print("Training Progress: ", eps, " / ", iteration)
         if eps % 10000 == 0:
-            torch.save(model, "newDQN.pt")
+            torch.save(model, "newDQN-5-16.pt")
             testMain()
             #memory = []
             #memory = fillMemory(env, memory)
 
-    torch.save(model, "newDQN.pt")
+    torch.save(model, "newDQN-5-16.pt")
     testMain()
 
 
@@ -136,7 +141,7 @@ def testMain():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     #device = 'cpu'
     env = gym.make("Taxi-v3", render_mode="rgb_array")
-    model = torch.load("newDQN.pt", map_location=torch.device(device)).to(device)
+    model = torch.load("newDQN-5-16.pt", map_location=torch.device(device)).to(device)
 
     #memory = []
     #memory, testState = fillMemory(env, memory)
@@ -146,6 +151,8 @@ def testMain():
 
     total = 0
     wins = 0
+
+    rewardSum = 0
 
     for memInstance in range(1000):
 
@@ -162,7 +169,7 @@ def testMain():
         with torch.no_grad():
             output = model(tensorIMG)
 
-        # print(output)
+        #print(output)
         large = torch.finfo(output.dtype).max
         #print(output)
         ac = (output - large * (1 - torch.from_numpy(info["action_mask"]).to(device)) - large * (
@@ -173,6 +180,7 @@ def testMain():
 
         observation, reward, terminated, truncated, info = env.step(ac.item())
         picture = env.render()
+        rewardSum+=reward
 
         if terminated or truncated:
             observation, info = env.reset()
@@ -183,7 +191,9 @@ def testMain():
             if truncated:
                 wins = wins
                 print("Game Lost")
+            print("Total Game Reward: ", rewardSum)
             print("Total Wins: ", wins, " / ", total)
+            rewardSum = 0
         observation = env.render()
 
     env.close()
